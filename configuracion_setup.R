@@ -1,13 +1,9 @@
-# =============================================================================
-# CONFIGURACIÓN PARA AUTOMATIZACIÓN
-# =============================================================================
 
-# Crear estructura de directorios
+
 if(!dir.exists(".github/workflows")) {
   dir.create(".github/workflows", recursive = TRUE)
 }
 
-# Crear archivo de GitHub Actions para automatización diaria
 github_action_yml <- '
 name: Actualización Diaria de Datos
 
@@ -53,7 +49,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 '
 
-# Guardar archivo de GitHub Actions
 writeLines(github_action_yml, ".github/workflows/update-data.yml")
 
 cat("✅ Archivo de GitHub Actions creado: .github/workflows/update-data.yml\n")
@@ -82,7 +77,6 @@ data/*.log
   cat("✅ Archivo .gitignore creado\n")
 }
 
-# Crear README
 readme_content <- "# 🐟 Sistema de Zonas de Cierre Pesquero
 
 ## Automatización

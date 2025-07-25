@@ -1,38 +1,29 @@
-# =============================================================================
-# SCRIPT DE ACTUALIZACIÓN DIARIA
-# Se ejecuta automáticamente cada día para agregar nuevos datos
-# =============================================================================
 
 library(Tivy)
 library(dplyr)
 
-# Función de actualización diaria
 actualizar_datos_diarios <- function() {
   
   cat("🔄 Iniciando actualización diaria -", Sys.time(), "\n")
   
   tryCatch({
     
-    # Verificar si existen datos anteriores
     if(!file.exists("data/zonas_pesqueras.rds")) {
       cat("❌ No se encontró archivo de datos base\n")
       cat("💡 Ejecuta primero: source('1_crear_datos_iniciales.R')\n")
       return(FALSE)
     }
     
-    # Cargar datos existentes
     datos_existentes <- readRDS("data/zonas_pesqueras.rds")
     metadatos <- readRDS("data/metadatos.rds")
     
     cat("📂 Datos existentes:", nrow(datos_existentes), "registros\n")
     
-    # Determinar fechas para buscar (últimos 3 días para asegurar cobertura)
     fecha_desde <- format(Sys.Date() - 3, "%d/%m/%Y")
     fecha_hasta <- format(Sys.Date(), "%d/%m/%Y")
     
     cat("🔍 Buscando datos desde", fecha_desde, "hasta", fecha_hasta, "\n")
     
-    # Obtener anuncios recientes
     anuncios_nuevos <- fetch_fishing_announcements(
       start_date = fecha_desde,
       end_date = fecha_hasta,
@@ -52,10 +43,8 @@ actualizar_datos_diarios <- function() {
     
     cat("📥 Procesando", nrow(anuncios_nuevos), "anuncios nuevos...\n")
     
-    # Procesar nuevos datos
     datos_nuevos <- tryCatch({
       
-      # Procesar de a uno para mayor robustez
       resultados <- list()
       
       for(i in 1:min(5, nrow(anuncios_nuevos))) {  # Máximo 5 por día
@@ -73,7 +62,7 @@ actualizar_datos_diarios <- function() {
           resultados[[length(resultados) + 1]] <- resultado
         }
         
-        Sys.sleep(1)  # Pausa entre documentos
+        Sys.sleep(1) 
       }
       
       if(length(resultados) > 0) {
@@ -89,17 +78,14 @@ actualizar_datos_diarios <- function() {
     
     if(!is.null(datos_nuevos) && nrow(datos_nuevos) > 0) {
       
-      # Formatear nuevos datos
       datos_nuevos_formateados <- format_extracted_data(
         data = datos_nuevos,
         convert_coordinates = TRUE
       )
       
-      # Agregar metadatos a nuevos datos
       datos_nuevos_formateados$fecha_procesamiento <- Sys.time()
       datos_nuevos_formateados$version_datos <- "1.0"
       
-      # Filtrar duplicados basado en archivo y fechas
       if("file_name" %in% names(datos_existentes) && "file_name" %in% names(datos_nuevos_formateados)) {
         archivos_existentes <- unique(datos_existentes$file_name)
         datos_nuevos_formateados <- datos_nuevos_formateados[
@@ -109,13 +95,10 @@ actualizar_datos_diarios <- function() {
       
       if(nrow(datos_nuevos_formateados) > 0) {
         
-        # Combinar datos
         datos_actualizados <- rbind(datos_existentes, datos_nuevos_formateados)
         
-        # Guardar datos actualizados
         saveRDS(datos_actualizados, "data/zonas_pesqueras.rds")
         
-        # Actualizar metadatos
         metadatos$ultima_actualizacion <- Sys.time()
         metadatos$total_registros <- nrow(datos_actualizados)
         metadatos$registros_agregados_hoy <- nrow(datos_nuevos_formateados)
@@ -152,7 +135,6 @@ actualizar_datos_diarios <- function() {
   })
 }
 
-# Ejecutar actualización
 resultado <- actualizar_datos_diarios()
 
 if(resultado) {

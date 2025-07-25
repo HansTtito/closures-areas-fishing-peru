@@ -1,41 +1,50 @@
+# =============================================================================
+# SERVIDOR
+# =============================================================================
 server <- function(input, output, session) {
   
-  # Cargar datos al inicio
   datos_completos <- reactive({
     if(file.exists("data/zonas_pesqueras.rds")) {
-      readRDS("data/zonas_pesqueras.rds")
+      tryCatch({
+        readRDS("data/zonas_pesqueras.rds")
+      }, error = function(e) {
+        data.frame()
+      })
     } else {
-      data.frame()  # Datos vacíos si no existe el archivo
+      data.frame()
     }
   })
   
   metadatos <- reactive({
     if(file.exists("data/metadatos.rds")) {
-      readRDS("data/metadatos.rds")
+      tryCatch({
+        readRDS("data/metadatos.rds")
+      }, error = function(e) {
+        list(total_registros = 0, ultima_actualizacion = Sys.time())
+      })
     } else {
       list(total_registros = 0, ultima_actualizacion = Sys.time())
     }
   })
   
-  # Estado reactivo
   estado <- reactiveValues(
     status = "inicial",
     mensaje = "",
     zonas = 0
   )
   
-  # Información de datos
   output$info_datos <- renderText({
     meta <- metadatos()
-    if(meta$total_registros > 0) {
-      paste0("📊 ", meta$total_registros, " registros disponibles\n",
+    datos <- datos_completos()
+    
+    if(nrow(datos) > 0) {
+      paste0("📊 ", nrow(datos), " registros disponibles\n",
              "🔄 Última actualización: ", format(meta$ultima_actualizacion, "%d/%m/%Y %H:%M"))
     } else {
-      "⚠️ No hay datos disponibles"
+      "⚠️ No hay datos disponibles. Ejecuta el script de datos iniciales."
     }
   })
   
-  # Mapa inicial
   output$mapa <- renderLeaflet({
     leaflet() %>%
       addTiles() %>%
@@ -43,7 +52,6 @@ server <- function(input, output, session) {
       addProviderTiles("CartoDB.Positron")
   })
   
-  # Estado dinámico
   output$estado <- renderUI({
     if(estado$status == "inicial") {
       div(class = "status-box status-waiting",
@@ -57,10 +65,8 @@ server <- function(input, output, session) {
     }
   })
   
-  # Procesamiento principal
   observeEvent(input$buscar, {
     
-    # Validaciones
     if(is.null(input$fechas[1]) || is.null(input$fechas[2])) {
       estado$status <- "error"
       estado$mensaje <- "❌ Selecciona un rango de fechas válido"
@@ -73,41 +79,43 @@ server <- function(input, output, session) {
       return()
     }
     
-    # Verificar que hay datos
     datos <- datos_completos()
+    
     if(nrow(datos) == 0) {
       estado$status <- "error"
-      estado$mensaje <- "❌ No hay datos disponibles. Contacta al administrador."
+      estado$mensaje <- "❌ No hay datos disponibles. Ejecuta: source('1_crear_datos_iniciales.R')"
       return()
     }
     
-    # Filtrar datos por fechas
-    fecha_inicio <- as.POSIXct(paste(input$fechas[1], "00:00:00"))
-    fecha_fin <- as.POSIXct(paste(input$fechas[2], "23:59:59"))
-    
-    datos_filtrados <- datos %>%
-      filter(
-        StartDateTime >= fecha_inicio & StartDateTime <= fecha_fin |
-          EndDateTime >= fecha_inicio & EndDateTime <= fecha_fin |
-          (StartDateTime <= fecha_inicio & EndDateTime >= fecha_fin)
-      )
-    
-    if(nrow(datos_filtrados) == 0) {
-      estado$status <- "empty"
-      estado$mensaje <- paste0("📋 No hay zonas activas entre ", 
-                               format(input$fechas[1], "%d/%m/%Y"), " y ", 
-                               format(input$fechas[2], "%d/%m/%Y"))
-      
-      # Limpiar mapa
-      leafletProxy("mapa") %>%
-        clearShapes() %>%
-        clearMarkers()
-      
-      return()
-    }
-    
-    # Crear mapa con datos filtrados
     tryCatch({
+      
+      fecha_inicio <- as.POSIXct(paste(input$fechas[1], "00:00:00"))
+      fecha_fin <- as.POSIXct(paste(input$fechas[2], "23:59:59"))
+      
+      valid_rows <- !is.na(datos$StartDateTime) & !is.na(datos$EndDateTime)
+      
+      date_filter <- (
+        (datos$StartDateTime >= fecha_inicio & datos$StartDateTime <= fecha_fin) |
+          (datos$EndDateTime >= fecha_inicio & datos$EndDateTime <= fecha_fin) |
+          (datos$StartDateTime <= fecha_inicio & datos$EndDateTime >= fecha_fin)
+      )
+      
+      final_filter <- valid_rows & date_filter
+      datos_filtrados <- datos[final_filter, ]
+      
+      if(nrow(datos_filtrados) == 0) {
+        estado$status <- "empty"
+        estado$mensaje <- paste0("📋 No hay zonas activas entre ", 
+                                 format(input$fechas[1], "%d/%m/%Y"), " y ", 
+                                 format(input$fechas[2], "%d/%m/%Y"))
+        
+        # Limpiar mapa
+        leafletProxy("mapa") %>%
+          clearShapes() %>%
+          clearMarkers()
+        
+        return()
+      }
       
       mapa_nuevo <- plot_fishing_zones(
         data = datos_filtrados,
@@ -119,14 +127,16 @@ server <- function(input, output, session) {
       
       output$mapa <- renderLeaflet({ mapa_nuevo })
       
-      # Estado exitoso
       estado$status <- "success"
       estado$zonas <- nrow(datos_filtrados)
       estado$mensaje <- paste0("✅ ", estado$zonas, " zona(s) encontrada(s) para el período seleccionado")
       
     }, error = function(e) {
       estado$status <- "error"
-      estado$mensaje <- "❌ Error al generar el mapa"
+      estado$mensaje <- paste0("❌ Error al procesar datos: ", substr(as.character(e), 1, 50))
+      
+      # Log para debugging
+      cat("Error en filtrado:", as.character(e), "\n")
     })
   })
 }

@@ -1,23 +1,15 @@
-# =============================================================================
-# SCRIPT PARA CREAR DATOS HISTÓRICOS INICIALES
-# Ejecutar UNA VEZ para generar el archivo base
-# =============================================================================
-
 library(Tivy)
 library(dplyr)
 
-# Configuración
-fecha_inicio <- "01/01/2023"  # Ajustar según necesites
+fecha_inicio <- "01/01/2023"  
 fecha_fin <- format(Sys.Date(), "%d/%m/%Y")
 
 cat("🔄 Creando datos históricos desde", fecha_inicio, "hasta", fecha_fin, "\n")
 
-# Función para procesar datos de manera robusta
 procesar_datos_historicos <- function(start_date, end_date) {
   
   tryCatch({
     
-    # Obtener anuncios
     cat("📡 Obteniendo lista de anuncios...\n")
     anuncios <- fetch_fishing_announcements(
       start_date = start_date,
@@ -33,7 +25,6 @@ procesar_datos_historicos <- function(start_date, end_date) {
     
     cat("📥 Procesando", nrow(anuncios), "documentos...\n")
     
-    # Procesar en lotes para evitar problemas de memoria
     todos_los_datos <- list()
     batch_size <- 5  # Procesar de a 5 PDFs
     
@@ -55,22 +46,18 @@ procesar_datos_historicos <- function(start_date, end_date) {
         todos_los_datos[[length(todos_los_datos) + 1]] <- batch_data
       }
       
-      # Pausa entre lotes
       Sys.sleep(2)
     }
     
-    # Combinar todos los datos
     if(length(todos_los_datos) > 0) {
       datos_combinados <- do.call(rbind, todos_los_datos)
       
-      # Formatear datos
       cat("🔄 Formateando datos...\n")
       datos_formateados <- format_extracted_data(
         data = datos_combinados,
         convert_coordinates = TRUE
       )
       
-      # Agregar metadatos
       datos_formateados$fecha_procesamiento <- Sys.time()
       datos_formateados$version_datos <- "1.0"
       
@@ -87,20 +74,16 @@ procesar_datos_historicos <- function(start_date, end_date) {
   })
 }
 
-# Procesar datos históricos
 datos_historicos <- procesar_datos_historicos(fecha_inicio, fecha_fin)
 
 if(nrow(datos_historicos) > 0) {
   
-  # Crear directorio de datos si no existe
   if(!dir.exists("data")) {
     dir.create("data", recursive = TRUE)
   }
   
-  # Guardar datos
   saveRDS(datos_historicos, "data/zonas_pesqueras.rds")
   
-  # Guardar metadatos
   metadatos <- list(
     fecha_creacion = Sys.time(),
     periodo_cobertura = paste(fecha_inicio, "a", fecha_fin),
