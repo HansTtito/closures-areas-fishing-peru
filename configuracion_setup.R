@@ -32,8 +32,7 @@ jobs:
         
     - name: Install R dependencies
       run: |
-        R -e "install.packages(c(\'remotes\', \'dplyr\'))"
-        R -e "remotes::install_github(\'your-username/Tivy\')"  # Ajustar según corresponda
+        R -e "install.packages(c(\'Tivy\', \'dplyr\'))"
         
     - name: Run daily update
       run: Rscript 2_actualizacion_diaria.R
