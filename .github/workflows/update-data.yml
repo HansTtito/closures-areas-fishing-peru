@@ -90,6 +90,7 @@ jobs:
           echo "📍 No hay cambios para commitear"
         else
           git commit -m "📊 Actualización automática - $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main || true
           git push
           echo "✅ Cambios subidos"
         fi
