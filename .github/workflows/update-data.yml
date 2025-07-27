@@ -19,25 +19,53 @@ jobs:
       with:
         r-version: "4.3.0"
         
-    - name: Install system dependencies
+    - name: Cache R packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.local/share/renv
+        key: ${{ runner.os }}-renv-${{ hashFiles("**/*.R") }}
+        
+    - name: Instalar dependencias del sistema
       run: |
         sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libpoppler-cpp-dev
-        
-    - name: Install R dependencies
-      run: |
-        R -e "install.packages(c('Tivy', 'dplyr', 'leaflet', 'pdftools'))"
-        
-    - name: Run daily update
-      run: Rscript actualizacion_diaria.R
+        sudo apt-get install -y 
+          libcurl4-openssl-dev 
+          libssl-dev 
+          libxml2-dev 
+          libpoppler-cpp-dev 
+          libpng-dev 
+          libjpeg-dev 
+          libtiff5-dev 
+          libgdal-dev 
+          libproj-dev 
+          libgeos-dev 
+          libfontconfig1-dev 
+          libfreetype6-dev 
+          libudunits2-dev
       
-    - name: Commit and push changes
+    - name: Instalar dependencias de R
+      run: |
+        R -e "install.packages(c('Tivy', 'dplyr', 'leaflet', 'pdftools', 'png', 'raster'))"
+        
+    - name: Ejecutar actualización diaria
+      run: |
+        if ! Rscript actualizacion_diaria.R; then
+          echo "❌ Error en actualización de datos"
+          exit 1
+        fi
+      
+    - name: Commit y push de cambios (si los hay)
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add data/
-        git diff --staged --quiet || git commit -m "Actualización automática de datos - $(date)"
-        git push
+        if git diff --staged --quiet; then
+          echo "📍 No hay cambios en los datos"
+        else
+          git commit -m "📊 Actualización automática de datos - $(date +%Y-%m-%d %H:%M)"
+          git push
+          echo "✅ Datos actualizados y subidos"
+        fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
