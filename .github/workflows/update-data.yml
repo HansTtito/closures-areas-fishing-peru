@@ -1,25 +1,27 @@
-
-name: Actualización Diaria de Datos
+name: Actualización y Publicación de App Shiny
 
 on:
   schedule:
-    - cron: "0 6 * * *"
-  workflow_dispatch:
+    - cron: "0 6 * * *"  # Cada día a las 6:00 AM UTC
+  workflow_dispatch:  # Permite ejecutar manualmente
 
 jobs:
-  update-data:
+  build-and-deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
-
-    - name: Setup R
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  
+    
+    - name: Set up R
       uses: r-lib/actions/setup-r@v2
       with:
         r-version: "4.3.0"
-
-    - name: Instalar dependencias del sistema
+        use-public-rspm: true
+    
+    - name: Instalar librerías del sistema
       run: |
         sudo apt-get update
         sudo apt-get install -y \
@@ -35,31 +37,188 @@ jobs:
           libgeos-dev \
           libfontconfig1-dev \
           libfreetype6-dev \
-          libudunits2-dev
-
-    - name: Instalar dependencias de R
+          libudunits2-dev \
+          libharfbuzz-dev \
+          libfribidi-dev
+    
+    - name: Cache paquetes R
+      uses: actions/cache@v3
+      with:
+        path: ~/.local/share/renv
+        key: r-packages-${{ runner.os }}-${{ hashFiles('**/renv.lock', '**/DESCRIPTION') }}
+        restore-keys: |
+          r-packages-${{ runner.os }}-
+    
+    - name: Verificar archivos necesarios
       run: |
-        R -e "install.packages(c('Tivy', 'dplyr', 'leaflet', 'pdftools', 'png', 'raster'))"
-
-    - name: Ejecutar actualización diaria
-      run: |
-        if ! Rscript actualizacion_diaria.R; then
-          echo "❌ Error en actualización de datos"
+        if [ ! -f "app.R" ] && [ ! -f "ui.R" ]; then
+          echo "❌ Error: No se encontraron archivos de Shiny app (app.R o ui.R)"
           exit 1
         fi
-
-    - name: Commit y push de cambios (si los hay)
+        echo "✅ Archivos de Shiny app encontrados"
+        
+        # Verificar estructura de directorios
+        if [ ! -d "data" ]; then
+          echo "📁 Creando directorio data/"
+          mkdir -p data
+        fi
+    
+    - name: Instalar paquetes R necesarios
+      run: |
+        # Verificar si existe renv.lock
+        if [ -f "renv.lock" ]; then
+          echo "📦 Usando renv para restaurar paquetes..."
+          Rscript -e "if (!requireNamespace('renv', quietly = TRUE)) install.packages('renv'); renv::restore()"
+        else
+          echo "📦 Instalando paquetes manualmente..."
+          Rscript -e "
+            packages <- c('rsconnect', 'shiny', 'dplyr', 'leaflet', 'pdftools', 'png', 'raster', 'DT', 'plotly')
+            new_packages <- packages[!(packages %in% installed.packages()[,'Package'])]
+            if(length(new_packages)) {
+              install.packages(new_packages, dependencies = TRUE)
+              cat('✅ Paquetes instalados:', paste(new_packages, collapse = ', '), '\n')
+            } else {
+              cat('✅ Todos los paquetes ya están instalados\n')
+            }
+          "
+        fi
+    
+    - name: Ejecutar script de actualización (opcional)
+      run: |
+        if [ -f "actualizacion_diaria.R" ]; then
+          echo "▶️ Ejecutando script de actualización..."
+          Rscript actualizacion_diaria.R || {
+            echo "⚠️ El script de actualización falló, pero continuamos con el despliegue"
+            exit 0
+          }
+          echo "✅ Script ejecutado correctamente"
+        else
+          echo "ℹ️ No se encontró actualizacion_diaria.R. Continuando sin actualización..."
+        fi
+    
+    - name: Verificar funcionamiento de la app
+      run: |
+        echo "🔍 Verificando que la app se puede cargar..."
+        Rscript -e "
+          tryCatch({
+            if (file.exists('app.R')) {
+              source('app.R', local = TRUE)
+              cat('✅ app.R se carga correctamente\n')
+            } else if (file.exists('ui.R') && file.exists('server.R')) {
+              source('ui.R', local = TRUE)
+              source('server.R', local = TRUE)
+              cat('✅ ui.R y server.R se cargan correctamente\n')
+            }
+          }, error = function(e) {
+            cat('❌ Error al cargar la app:', conditionMessage(e), '\n')
+            quit(status = 1)
+          })
+        "
+    
+    - name: Commit y push de cambios si los hay
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add data/
-        if git diff --staged --quiet; then
-          echo "📍 No hay cambios en los datos"
+        
+        # Añadir todos los cambios
+        git add -A
+        
+        # Verificar si hay cambios
+        if git diff --cached --quiet; then
+          echo "📍 No hay cambios para commitear"
         else
-          git commit -m "📊 Actualización automática de datos - $(date +%Y-%m-%d\ %H:%M)"
-          git push
-          echo "✅ Datos actualizados y subidos"
+          echo "📝 Commiteando cambios..."
+          git commit -m "📊 Actualización automática - $(date '+%Y-%m-%d %H:%M:%S UTC')" || {
+            echo "⚠️ Error al hacer commit, pero continuamos"
+            exit 0
+          }
+          
+          # Intentar push con reintentos
+          for i in {1..3}; do
+            if git push origin HEAD; then
+              echo "✅ Push realizado correctamente"
+              break
+            else
+              echo "⚠️ Intento $i de push falló, reintentando..."
+              sleep 5
+              git pull --rebase origin HEAD || true
+            fi
+          done
         fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+    
+    - name: Preparar para despliegue
+      run: |
+        echo "🚀 Preparando archivos para despliegue..."
+        
+        # Crear .Rprofile si no existe para rsconnect
+        if [ ! -f ".Rprofile" ]; then
+          echo 'options(repos = c(CRAN = "https://cran.rstudio.com/"))' > .Rprofile
+        fi
+        
+        # Verificar que rsconnect esté disponible
+        Rscript -e "
+          if (!requireNamespace('rsconnect', quietly = TRUE)) {
+            install.packages('rsconnect')
+          }
+          cat('✅ rsconnect disponible\n')
+        "
+    
+    - name: Publicar en shinyapps.io
+      env:
+        SHINYAPPS_ACCOUNT: ${{ secrets.SHINYAPPS_ACCOUNT }}
+        SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
+        SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET }}
+      run: |
+        echo "🚀 Iniciando despliegue en shinyapps.io..."
+        
+        Rscript -e "
+          # Verificar que las credenciales estén disponibles
+          account <- Sys.getenv('SHINYAPPS_ACCOUNT')
+          token <- Sys.getenv('SHINYAPPS_TOKEN')
+          secret <- Sys.getenv('SHINYAPPS_SECRET')
+          
+          if (account == '' || token == '' || secret == '') {
+            stop('❌ Error: Credenciales de shinyapps.io no configuradas correctamente')
+          }
+          
+          cat('📡 Configurando credenciales...\n')
+          rsconnect::setAccountInfo(
+            name = account,
+            token = token,
+            secret = secret
+          )
+          
+          cat('🚀 Desplegando aplicación...\n')
+          rsconnect::deployApp(
+            appDir = '.',
+            appName = NULL,  # Usa el nombre del directorio
+            forceUpdate = TRUE,
+            launch.browser = FALSE,
+            logLevel = 'verbose'
+          )
+          
+          cat('✅ Despliegue completado exitosamente!\n')
+        " || {
+          echo "❌ Error durante el despliegue"
+          exit 1
+        }
+    
+    - name: Resumen del workflow
+      if: always()
+      run: |
+        echo "📋 RESUMEN DEL WORKFLOW"
+        echo "======================="
+        echo "🕐 Fecha: $(date)"
+        echo "📊 Repositorio: ${{ github.repository }}"
+        echo "🔄 Commit: ${{ github.sha }}"
+        echo "👤 Ejecutado por: ${{ github.actor }}"
+        
+        if [ "${{ job.status }}" = "success" ]; then
+          echo "✅ Estado: EXITOSO"
+          echo "🌐 Tu app está disponible en: https://${{ secrets.SHINYAPPS_ACCOUNT }}.shinyapps.io/[nombre-app]"
+        else
+          echo "❌ Estado: FALLÓ"
+          echo "📝 Revisa los logs para más detalles"
+        fi

@@ -83,7 +83,7 @@ server <- function(input, output, session) {
     
     if(nrow(datos) == 0) {
       estado$status <- "error"
-      estado$mensaje <- "❌ No hay datos disponibles. Ejecuta: source('1_crear_datos_iniciales.R')"
+      estado$mensaje <- "❌ No hay datos disponibles. Ejecuta: source('descarga_datos_inicial.R')"
       return()
     }
     
@@ -129,7 +129,7 @@ server <- function(input, output, session) {
       
       estado$status <- "success"
       estado$zonas <- nrow(datos_filtrados)
-      estado$mensaje <- paste0("✅ ", estado$zonas, " zona(s) encontrada(s) para el período seleccionado")
+      estado$mensaje <- paste0("✅ ", estado$zonas, " zona(0s) encontrada(s) para el período seleccionado")
       
     }, error = function(e) {
       estado$status <- "error"
