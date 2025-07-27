@@ -5,7 +5,8 @@ packages <- c(
   "leaflet",
   "pdftools",
   "png",
-  "raster"
+  "raster",
+  "shinycssloaders"
 )
 
 new_packages <- packages[!(packages %in% installed.packages()[,"Package"])]
