@@ -29,7 +29,7 @@ jobs:
         R -e "install.packages(c('Tivy', 'dplyr'))"
         
     - name: Run daily update
-      run: Rscript 2_actualizacion_diaria.R
+      run: Rscript actualizacion_diaria.R
       
     - name: Commit and push changes
       run: |
