@@ -65,18 +65,27 @@ jobs:
     
     - name: Instalar paquetes R necesarios
       run: |
-        # Verificar si existe renv.lock y está configurado correctamente
-        if [ -f "renv.lock" ] && [ -f "renv/activate.R" ]; then
-          echo "📦 Usando renv para restaurar paquetes..."
-          Rscript -e "if (!requireNamespace('renv', quietly = TRUE)) install.packages('renv'); renv::restore()"
-        elif [ -f "renv.lock" ]; then
-          echo "⚠️ Encontrado renv.lock pero renv no está inicializado correctamente"
-          echo "📦 Inicializando renv y restaurando paquetes..."
+        # Verificar si existe renv.lock
+        if [ -f "renv.lock" ]; then
+          echo "📦 Detectado renv.lock - configurando renv para GitHub Actions..."
+          
+          # Renombrar .Rprofile temporalmente para evitar conflictos
+          if [ -f ".Rprofile" ]; then
+            mv .Rprofile .Rprofile.backup
+          fi
+          
+          # Instalar renv y restaurar sin activar automáticamente
           Rscript -e "
             if (!requireNamespace('renv', quietly = TRUE)) install.packages('renv')
-            renv::init(bare = TRUE)
-            renv::restore()
+            cat('📦 Restaurando paquetes desde renv.lock...\n')
+            renv::restore(prompt = FALSE)
+            cat('✅ Paquetes restaurados correctamente\n')
           "
+          
+          # Restaurar .Rprofile
+          if [ -f ".Rprofile.backup" ]; then
+            mv .Rprofile.backup .Rprofile
+          fi
         else
           echo "📦 Instalando paquetes manualmente..."
           Rscript -e "
