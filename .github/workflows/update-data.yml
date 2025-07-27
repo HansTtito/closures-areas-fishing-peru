@@ -13,7 +13,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
+        fetch-depth: 0  # Necesario para git operations
     
     - name: Set up R
       uses: r-lib/actions/setup-r@v2
@@ -65,10 +65,18 @@ jobs:
     
     - name: Instalar paquetes R necesarios
       run: |
-        # Verificar si existe renv.lock
-        if [ -f "renv.lock" ]; then
+        # Verificar si existe renv.lock y está configurado correctamente
+        if [ -f "renv.lock" ] && [ -f "renv/activate.R" ]; then
           echo "📦 Usando renv para restaurar paquetes..."
           Rscript -e "if (!requireNamespace('renv', quietly = TRUE)) install.packages('renv'); renv::restore()"
+        elif [ -f "renv.lock" ]; then
+          echo "⚠️ Encontrado renv.lock pero renv no está inicializado correctamente"
+          echo "📦 Inicializando renv y restaurando paquetes..."
+          Rscript -e "
+            if (!requireNamespace('renv', quietly = TRUE)) install.packages('renv')
+            renv::init(bare = TRUE)
+            renv::restore()
+          "
         else
           echo "📦 Instalando paquetes manualmente..."
           Rscript -e "
@@ -151,11 +159,6 @@ jobs:
     - name: Preparar para despliegue
       run: |
         echo "🚀 Preparando archivos para despliegue..."
-        
-        # Crear .Rprofile si no existe para rsconnect
-        if [ ! -f ".Rprofile" ]; then
-          echo 'options(repos = c(CRAN = "https://cran.rstudio.com/"))' > .Rprofile
-        fi
         
         # Verificar que rsconnect esté disponible
         Rscript -e "
