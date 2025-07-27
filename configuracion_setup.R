@@ -7,28 +7,28 @@ name: Actualización Diaria de Datos
 
 on:
   schedule:
-    - cron: "0 6 * * *"  # Ejecutar todos los días a las 6:00 AM UTC
-  workflow_dispatch:      # Permitir ejecución manual
+    - cron: "0 6 * * *"
+  workflow_dispatch:
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-      
+
     - name: Setup R
       uses: r-lib/actions/setup-r@v2
       with:
         r-version: "4.3.0"
-        
+
     - name: Cache R packages
       uses: actions/cache@v3
       with:
         path: ~/.local/share/renv
-        key: ${{ runner.os }}-renv-${{ hashFiles("**/*.R") }}
-        
+        key: ${{ runner.os }}-renv-${{ hashFiles(\\"**/*.R\\") }}
+
     - name: Instalar dependencias del sistema
       run: |
         sudo apt-get update
@@ -46,18 +46,18 @@ jobs:
           libfontconfig1-dev \
           libfreetype6-dev \
           libudunits2-dev
-      
+
     - name: Instalar dependencias de R
       run: |
         R -e "install.packages(c(\'Tivy\', \'dplyr\', \'leaflet\', \'pdftools\', \'png\', \'raster\'))"
-        
+
     - name: Ejecutar actualización diaria
       run: |
         if ! Rscript actualizacion_diaria.R; then
           echo "❌ Error en actualización de datos"
           exit 1
         fi
-      
+
     - name: Commit y push de cambios (si los hay)
       run: |
         git config --local user.email "action@github.com"
@@ -66,13 +66,14 @@ jobs:
         if git diff --staged --quiet; then
           echo "📍 No hay cambios en los datos"
         else
-          git commit -m "📊 Actualización automática de datos - $(date +%Y-%m-%d\ %H:%M)"
+          git commit -m "📊 Actualización automática de datos - $(date +%Y-%m-%d\\ %H:%M)"
           git push
           echo "✅ Datos actualizados y subidos"
         fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 '
+
 
 writeLines(github_action_yml, ".github/workflows/update-data.yml")
 cat("✅ Archivo de GitHub Actions creado: .github/workflows/update-data.yml\n")
