@@ -32,7 +32,7 @@ jobs:
         
     - name: Install R dependencies
       run: |
-        R -e "install.packages(c(\'Tivy\', \'dplyr\'))"
+        R -e "install.packages(c(\'Tivy\', \'dplyr\', \'leaflet\', \'pdftools\'))"
         
     - name: Run daily update
       run: Rscript 2_actualizacion_diaria.R
