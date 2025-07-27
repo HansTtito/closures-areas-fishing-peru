@@ -23,12 +23,6 @@ jobs:
       with:
         r-version: "4.3.0"
 
-    - name: Cache R packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.local/share/renv
-        key: ${{ runner.os }}-renv-${{ hashFiles(\\"**/*.R\\") }}
-
     - name: Instalar dependencias del sistema
       run: |
         sudo apt-get update
