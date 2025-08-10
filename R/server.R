@@ -236,9 +236,11 @@ server <- function(input, output, session) {
         return()
       }
       
-      # AGREGAR ESTA LÍNEA:
-      polygons <- Tivy:::prepare_polygons(data = datos_filtrados, coastline = Tivy::peru_coastline, coast_parallels = Tivy::peru_coast_parallels)
-
+      polygons <- if(nrow(datos_filtrados) > 0) {
+        Tivy:::prepare_polygons(data = datos_filtrados, coastline = Tivy::peru_coastline, coast_parallels = Tivy::peru_coast_parallels)
+      } else {
+        list() 
+      }
       # Create combined map
       mapa_nuevo <- plot_zones_with_csv(
         polygons = polygons,  # del prepare_polygons()

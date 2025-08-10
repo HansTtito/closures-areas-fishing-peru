@@ -82,7 +82,7 @@ ui <- fluidPage(
       width = 9,
       div(class = "map-container",
           withSpinner(
-            leafletOutput("mapa", height = "650px"),
+            leafletOutput("mapa", height = "750px"),
             type = 6,
             color = "#0ea5e9"
           )
