@@ -5,9 +5,6 @@ account: kevin-ttito
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 15123433
-bundleId: 10676272
+bundleId: 10753355
 url: https://kevin-ttito.shinyapps.io/fishing-closures-areas-peru/
 version: 1
-asMultiple: FALSE
-asStatic: FALSE
-ignoredFiles: .github/workflows/update-data.yml|actualizacion_diaria.R|configuracion_setup.R|descarga_datos_inicial.R|LICENSE|README.md
