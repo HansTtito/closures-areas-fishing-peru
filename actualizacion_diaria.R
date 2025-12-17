@@ -19,7 +19,7 @@ actualizar_datos_diarios <- function() {
     
     cat("📂 Datos existentes:", nrow(datos_existentes), "registros\n")
     
-    fecha_desde <- format(Sys.Date() - 10, "%d/%m/%Y")
+    fecha_desde <- format(Sys.Date() - 20, "%d/%m/%Y")
     fecha_hasta <- format(Sys.Date(), "%d/%m/%Y")
     
     cat("🔍 Buscando datos desde", fecha_desde, "hasta", fecha_hasta, "\n")

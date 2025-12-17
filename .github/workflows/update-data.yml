@@ -1,136 +1,136 @@
-name: Actualización y Publicación de App Shiny
+# name: Actualización y Publicación de App Shiny
 
-on:
-  schedule:
-    - cron: "0 6 * * *"  # Cada día a las 6:00 AM UTC
-  workflow_dispatch:      # Permitir ejecución manual
+# on:
+#   schedule:
+#     - cron: "0 6 * * *"  # Cada día a las 6:00 AM UTC
+#   workflow_dispatch:      # Permitir ejecución manual
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+# jobs:
+#   build-and-deploy:
+#     runs-on: ubuntu-latest
 
-    env:
-      R_LIBS_USER: ~/.local/share/R/library
+#     env:
+#       R_LIBS_USER: ~/.local/share/R/library
 
-    steps:
-    - name: Checkout del repositorio
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+#     steps:
+#     - name: Checkout del repositorio
+#       uses: actions/checkout@v4
+#       with:
+#         fetch-depth: 0
 
-    - name: Configurar R
-      uses: r-lib/actions/setup-r@v2
-      with:
-        r-version: "4.4.2"
-        use-public-rspm: true
+#     - name: Configurar R
+#       uses: r-lib/actions/setup-r@v2
+#       with:
+#         r-version: "4.4.2"
+#         use-public-rspm: true
 
-    - name: Instalar librerías del sistema
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          libcurl4-openssl-dev \
-          libssl-dev \
-          libxml2-dev \
-          libpoppler-cpp-dev \
-          libpng-dev \
-          libjpeg-dev \
-          libtiff5-dev \
-          libgdal-dev \
-          libproj-dev \
-          libgeos-dev \
-          libfontconfig1-dev \
-          libfreetype6-dev \
-          libudunits2-dev \
-          libharfbuzz-dev \
-          libfribidi-dev
+#     - name: Instalar librerías del sistema
+#       run: |
+#         sudo apt-get update
+#         sudo apt-get install -y \
+#           libcurl4-openssl-dev \
+#           libssl-dev \
+#           libxml2-dev \
+#           libpoppler-cpp-dev \
+#           libpng-dev \
+#           libjpeg-dev \
+#           libtiff5-dev \
+#           libgdal-dev \
+#           libproj-dev \
+#           libgeos-dev \
+#           libfontconfig1-dev \
+#           libfreetype6-dev \
+#           libudunits2-dev \
+#           libharfbuzz-dev \
+#           libfribidi-dev
 
-    - name: Cache de paquetes R
-      uses: actions/cache@v3
-      with:
-        path: ${{ env.R_LIBS_USER }}
-        key: r-pkgs-${{ runner.os }}-${{ hashFiles('install-packages.R') }}
-        restore-keys: |
-          r-pkgs-${{ runner.os }}-
+#     - name: Cache de paquetes R
+#       uses: actions/cache@v3
+#       with:
+#         path: ${{ env.R_LIBS_USER }}
+#         key: r-pkgs-${{ runner.os }}-${{ hashFiles('install-packages.R') }}
+#         restore-keys: |
+#           r-pkgs-${{ runner.os }}-
 
-    - name: Instalar paquetes R necesarios
-      run: Rscript install-packages.R
+#     - name: Instalar paquetes R necesarios
+#       run: Rscript install-packages.R
 
-    - name: Ejecutar script de actualización (si existe)
-      run: |
-        if [ -f "actualizacion_diaria.R" ]; then
-          echo "▶️ Ejecutando script de actualización..."
-          Rscript actualizacion_diaria.R || {
-            echo "⚠️ El script de actualización falló, pero continuamos con el despliegue"
-            exit 0
-          }
-          echo "✅ Script ejecutado correctamente"
-        else
-          echo "ℹ️ No se encontró actualizacion_diaria.R. Continuando sin actualización..."
-        fi
+#     - name: Ejecutar script de actualización (si existe)
+#       run: |
+#         if [ -f "actualizacion_diaria.R" ]; then
+#           echo "▶️ Ejecutando script de actualización..."
+#           Rscript actualizacion_diaria.R || {
+#             echo "⚠️ El script de actualización falló, pero continuamos con el despliegue"
+#             exit 0
+#           }
+#           echo "✅ Script ejecutado correctamente"
+#         else
+#           echo "ℹ️ No se encontró actualizacion_diaria.R. Continuando sin actualización..."
+#         fi
 
-    - name: Verificar que app.R se puede cargar
-      run: |
-        echo "🔍 Verificando que la app se puede cargar..."
-        Rscript -e "
-          tryCatch({
-            source('app.R', local = TRUE)
-            cat('✅ app.R se carga correctamente\n')
-          }, error = function(e) {
-            cat('❌ Error al cargar app.R:', conditionMessage(e), '\n')
-            quit(status = 1)
-          })
-        "
+#     - name: Verificar que app.R se puede cargar
+#       run: |
+#         echo "🔍 Verificando que la app se puede cargar..."
+#         Rscript -e "
+#           tryCatch({
+#             source('app.R', local = TRUE)
+#             cat('✅ app.R se carga correctamente\n')
+#           }, error = function(e) {
+#             cat('❌ Error al cargar app.R:', conditionMessage(e), '\n')
+#             quit(status = 1)
+#           })
+#         "
 
-    - name: Commit y push de cambios si los hay
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add -A
-        if git diff --cached --quiet; then
-          echo "📍 No hay cambios para commitear"
-        else
-          git commit -m "📊 Actualización automática - $(date -u '+%Y-%m-%d %H:%M UTC')"
-          git pull --rebase origin main || true
-          git push
-          echo "✅ Cambios subidos"
-        fi
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#     - name: Commit y push de cambios si los hay
+#       run: |
+#         git config --local user.email "action@github.com"
+#         git config --local user.name "GitHub Action"
+#         git add -A
+#         if git diff --cached --quiet; then
+#           echo "📍 No hay cambios para commitear"
+#         else
+#           git commit -m "📊 Actualización automática - $(date -u '+%Y-%m-%d %H:%M UTC')"
+#           git pull --rebase origin main || true
+#           git push
+#           echo "✅ Cambios subidos"
+#         fi
+#       env:
+#         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Desplegar en shinyapps.io
-      env:
-        SHINYAPPS_ACCOUNT: ${{ secrets.SHINYAPPS_ACCOUNT }}
-        SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
-        SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET }}
-      run: |
-        echo "🚀 Desplegando app en shinyapps.io..."
-        Rscript -e "
-          rsconnect::setAccountInfo(
-            name = Sys.getenv('SHINYAPPS_ACCOUNT'),
-            token = Sys.getenv('SHINYAPPS_TOKEN'),
-            secret = Sys.getenv('SHINYAPPS_SECRET')
-          )
+#     - name: Desplegar en shinyapps.io
+#       env:
+#         SHINYAPPS_ACCOUNT: ${{ secrets.SHINYAPPS_ACCOUNT }}
+#         SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
+#         SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET }}
+#       run: |
+#         echo "🚀 Desplegando app en shinyapps.io..."
+#         Rscript -e "
+#           rsconnect::setAccountInfo(
+#             name = Sys.getenv('SHINYAPPS_ACCOUNT'),
+#             token = Sys.getenv('SHINYAPPS_TOKEN'),
+#             secret = Sys.getenv('SHINYAPPS_SECRET')
+#           )
 
-          rsconnect::deployApp(
-            appDir = '.',
-            appName = 'fishing-closures-areas-peru',
-            forceUpdate = TRUE,
-            launch.browser = FALSE,
-            logLevel = 'verbose'
-          )
-        "
+#           rsconnect::deployApp(
+#             appDir = '.',
+#             appName = 'fishing-closures-areas-peru',
+#             forceUpdate = TRUE,
+#             launch.browser = FALSE,
+#             logLevel = 'verbose'
+#           )
+#         "
 
-    - name: Resumen del workflow
-      if: always()
-      run: |
-        echo "📋 RESUMEN"
-        echo "Fecha: $(date -u)"
-        echo "Repositorio: ${{ github.repository }}"
-        echo "Ejecutado por: ${{ github.actor }}"
-        echo "Estado del job: ${{ job.status }}"
-        if [ "${{ job.status }}" = "success" ]; then
-          echo "✅ Despliegue exitoso"
-          echo "🌐 App publicada en: https://${{ secrets.SHINYAPPS_ACCOUNT }}.shinyapps.io/fishing-closures-areas-peru"
-        else
-          echo "❌ Hubo errores. Revisa los logs."
-        fi
+#     - name: Resumen del workflow
+#       if: always()
+#       run: |
+#         echo "📋 RESUMEN"
+#         echo "Fecha: $(date -u)"
+#         echo "Repositorio: ${{ github.repository }}"
+#         echo "Ejecutado por: ${{ github.actor }}"
+#         echo "Estado del job: ${{ job.status }}"
+#         if [ "${{ job.status }}" = "success" ]; then
+#           echo "✅ Despliegue exitoso"
+#           echo "🌐 App publicada en: https://${{ secrets.SHINYAPPS_ACCOUNT }}.shinyapps.io/fishing-closures-areas-peru"
+#         else
+#           echo "❌ Hubo errores. Revisa los logs."
+#         fi
